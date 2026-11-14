@@ -206,7 +206,24 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _safe_console() -> None:
+    """让中文输出在非中文 locale 的控制台上也不崩。
+
+    英文 Windows 的 stdout 常是 cp1252，print 中文会抛 UnicodeEncodeError；
+    此时把输出流切到 UTF-8（带容错）。UTF-8 / GBK / Big5 等环境保持原样。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "").replace("_", "")
+            if enc in {"utf8", "utf8sig", "gbk", "gb18030", "gb2312", "big5"}:
+                continue
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _safe_console()
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):
