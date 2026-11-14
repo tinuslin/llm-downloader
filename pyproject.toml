@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-downloader"
+version = "0.1.0"
+description = "多源模型下载器 + 硬件自适应推荐 + 本地模型库"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+# CLI 零依赖；下面两项仅 Web UI 需要
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.scripts]
+llm-downloader = "llm_downloader.main:main"
+
+[tool.setuptools.packages.find]
+include = ["llm_downloader*"]

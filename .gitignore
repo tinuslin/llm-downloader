@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 本地数据（模型、索引、缓存）—— 不进仓库
+.llm-downloader/
+models/
+image-models/
+bin/
+cache/
+logs/
+*.part
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 测试产物
+.pytest_cache/
+htmlcov/
+.coverage

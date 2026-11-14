@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LLM Downloader · 多源模型下载器</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --panel2:#fbfbfc; --line:#e3e6ec; --line2:#eef0f4;
+    --ink:#1b1f27; --ink2:#5b6473; --ink3:#8b94a3;
+    --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --up:#d63031; --down:#1e9e5a;
+    --warn:#c47f10; --warn-soft:#fdf5e6;
+    --err:#c0392b; --err-soft:#fdeeed;
+    --ok:#1e9e5a; --ok-soft:#eaf7ef;
+    --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--accent)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#d3d8e0;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:#bcc3ce;background-clip:content-box}
+
+  header{display:flex;align-items:center;gap:14px;padding:11px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .logo{font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:9px;font-size:15px}
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .tabs{display:flex;gap:4px;margin-left:18px}
+  .tabs button{border:0;background:none;padding:9px 16px;cursor:pointer;color:var(--ink2);border-bottom:2px solid transparent;font-size:14px}
+  .tabs button:hover{color:var(--ink)}
+  .tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+  main{flex:1;min-height:0;display:flex;flex-direction:column}
+  section.view{display:none;flex:1;min-height:0;flex-direction:column}
+  section.view.active{display:flex}
+
+  .page{flex:1;overflow-y:auto;padding:20px 24px}
+  .page h2{margin:0 0 4px;font-size:18px}
+  .page .sub{color:var(--ink3);font-size:13px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:14px}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  table.t{width:100%;border-collapse:collapse;font-size:13px}
+  table.t th,table.t td{padding:7px 10px;border-bottom:1px solid var(--line2);text-align:left;vertical-align:top}
+  table.t th{color:var(--ink3);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;background:var(--panel2)}
+  table.t tr:hover td{background:#fafbfc}
+  table.t td.mono{font-family:var(--mono);font-size:12px;overflow-wrap:anywhere}
+  .row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type=text],input[type=number],select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);outline:none}
+  input:focus,select:focus{border-color:var(--accent);background:#fff}
+  .btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:9px 14px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .btn:hover{background:var(--panel2);border-color:#d3d8e0}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.danger{color:var(--err);border-color:#eccfca}
+  .btn.danger:hover{background:var(--err-soft)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);margin:7px 0}
+  .bar{height:8px;background:#eceff4;border-radius:99px;overflow:hidden;min-width:120px}
+  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+  .bar.ok i{background:var(--ok)}
+  .bar.bad i{background:var(--err)}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--ink3)}
+  .small{font-size:12.5px}
+  .empty{color:var(--ink3);text-align:center;padding:34px 10px;font-size:13px}
+  .tag{font:11px/1.6 var(--mono);padding:1px 7px;border-radius:5px;background:#eef1f6;color:var(--ink2)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:var(--ink2);white-space:nowrap}
+  .pill.ok{background:var(--ok-soft);border-color:#cfe9da;color:#146b3c}
+  .pill.bad{background:var(--err-soft);border-color:#f3d3cf;color:#93321f}
+  .pill.warn{background:var(--warn-soft);border-color:#f0e0bf;color:#8a5a09}
+  .toast{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:99}
+  .toast div{background:#1b1f27;color:#fff;padding:9px 14px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.18);animation:in .18s ease}
+  .toast div.bad{background:var(--err)}
+  .toast div.warn{background:var(--warn)}
+  .toast div.ok{background:var(--ok)}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .spin{width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .set-row{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;margin:8px 0}
+  .set-row label{font-size:13px;color:var(--ink2)}
+  .set-row input{width:100%}
+  .src-item{display:flex;align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;margin:6px 0;background:var(--panel2);flex-wrap:wrap}
+  .src-item .mono{flex:1;min-width:180px;overflow-wrap:anywhere}
+  .layer-info{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:12.5px}
+  input[type=range]{accent-color:var(--accent);min-width:170px}
+</style>
+</head>
+<body>
+<div class="app" style="display:flex;flex-direction:column;height:100vh">
+  <header>
+    <div class="logo"><span class="dot"></span> LLM Downloader</div>
+    <nav class="tabs">
+      <button class="active" data-view="advisor">模型推荐</button>
+      <button data-view="models">本地模型库</button>
+      <button data-view="download">多源下载</button>
+      <button data-view="settings">设置</button>
+    </nav>
+    <div class="hdr-right" id="hdr-right"></div>
+  </header>
+  <main>
+    <!-- ============ 推荐 ============ -->
+    <section class="view active" id="view-advisor">
+      <div class="page">
+        <h2>模型推荐</h2>
+        <div class="sub">按本机硬件实测给出「能跑什么、别下什么」的判断；候选仓库有多镜像，下载时自动回落到能解析出文件的那个。</div>
+        <div class="card">
+          <div class="row2" style="justify-content:space-between">
+            <h3 style="margin:0">本机硬件</h3>
+            <button class="btn sm" id="btn-adv-refresh">重新检测</button>
+          </div>
+          <div id="adv-hw" class="small muted">检测中…</div>
+        </div>
+        <div class="card" id="adv-offload-card">
+          <div class="row2" style="justify-content:space-between">
+            <h3 style="margin:0">分层加载（GPU Offload）</h3>
+            <span class="tag">对应 llama.cpp -ngl</span>
+          </div>
+          <div class="row2" style="margin-top:8px">
+            <select id="adv-off-mode" style="min-width:270px"></select>
+            <span class="row2" id="adv-off-custom" style="display:none">
+              <input type="range" id="adv-off-range" min="0" max="48" value="0" />
+              <b class="mono" id="adv-off-layers">0 层</b>
+            </span>
+            <span class="small muted" id="adv-off-hint"></span>
+          </div>
+          <div class="small muted" id="adv-off-note" style="margin-top:6px"></div>
+        </div>
+        <div class="card"><div class="row2" id="adv-roles"></div></div>
+        <div id="adv-list"></div>
+        <div class="card" id="adv-prog-card" style="display:none">
+          <h3>下载进度</h3>
+          <div id="adv-prog"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 模型库 ============ -->
+    <section class="view" id="view-models">
+      <div class="page">
+        <h2>本地模型库</h2>
+        <div class="sub">目录：<span class="mono" id="m-dir">-</span>　把 GGUF 直接丢进去后点「扫描」即可认领。</div>
+        <div class="row2" style="margin-bottom:14px">
+          <button class="btn sm" id="btn-scan">重新扫描</button>
+          <button class="btn sm" id="btn-scan-prune">扫描并清理失效条目</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="t" id="tbl-models">
+            <thead><tr>
+              <th>ID</th><th>别名</th><th>量化</th><th>视觉</th><th>大小</th><th>来源</th><th>路径</th><th></th>
+            </tr></thead><tbody></tbody>
+          </table>
+          <div class="empty" id="m-empty">还没有模型。去「多源下载」页拉一个，或把 GGUF 放进模型目录。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 下载 ============ -->
+    <section class="view" id="view-download">
+      <div class="page">
+        <h2>多源镜像下载</h2>
+        <div class="sub">按配置顺序自动降级：<span class="mono" id="d-order">-</span>　支持断点续传与 sha256 校验。</div>
+        <div class="card">
+          <h3>1 · 找模型</h3>
+          <div class="row2">
+            <input type="text" id="q" placeholder="关键词，如 qwen2.5 gguf / llama 3.2 gguf" style="flex:1;min-width:240px" />
+            <button class="btn sm" id="btn-search">搜索</button>
+          </div>
+          <div id="q-res" style="margin-top:12px"></div>
+        </div>
+        <div class="card">
+          <h3>2 · 选文件</h3>
+          <div class="row2">
+            <input type="text" id="d-ref" placeholder="仓库，如 Qwen/Qwen2.5-1.5B-Instruct-GGUF，或 ollama:qwen2.5:1.5b" style="flex:1;min-width:260px" />
+            <input type="text" id="d-quant" placeholder="量化（如 q4_k_m）" style="width:150px" />
+            <input type="text" id="d-alias" placeholder="别名（可选）" style="width:130px" />
+            <select id="d-source" style="min-width:120px">
+              <option value="">自动选源</option>
+            </select>
+            <button class="btn sm" id="btn-files">列文件</button>
+            <button class="btn primary sm" id="btn-download">开始下载</button>
+          </div>
+          <div class="chk"><input type="checkbox" id="d-mmproj" checked /><label for="d-mmproj" style="margin:0">同时下载 mmproj（视觉投影层，VLM 需要）</label></div>
+          <div id="d-files" style="margin-top:12px"></div>
+        </div>
+        <div class="card" id="d-prog-card" style="display:none">
+          <h3>3 · 下载进度</h3>
+          <div id="d-prog"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 设置 ============ -->
+    <section class="view" id="view-settings">
+      <div class="page">
+        <h2>设置</h2>
+        <div class="sub">保存后即时生效，写入 <span class="mono" id="s-file">-</span>，无需重启服务。</div>
+        <div class="card">
+          <h3>下载目录</h3>
+          <div class="set-row"><label>语言模型（GGUF）</label><input type="text" id="s-models" placeholder="留空 = 默认目录下的 models/" /></div>
+          <div class="small muted">生效路径：<span class="mono" id="s-models-eff">-</span></div>
+          <div class="set-row"><label>扩散模型（SD/FLUX）</label><input type="text" id="s-image" placeholder="留空 = 默认目录下的 image-models/" /></div>
+          <div class="small muted">生效路径：<span class="mono" id="s-image-eff">-</span></div>
+          <div class="small muted" style="margin-top:6px">支持绝对路径与 <span class="mono">~</span>；切换目录不会移动或删除已有模型。</div>
+        </div>
+        <div class="card">
+          <h3>下载源与优先级</h3>
+          <div class="small muted" style="margin-bottom:8px">按顺序自动降级：第一个能列出文件清单的源胜出。取消勾选即停用，↑↓ 调整优先级（至少一个源启用）。</div>
+          <div id="s-sources"></div>
+        </div>
+        <div class="card">
+          <h3>镜像地址</h3>
+          <div class="set-row"><label>hf-mirror</label><input type="text" id="s-ep-hf" /></div>
+          <div class="set-row"><label>ModelScope</label><input type="text" id="s-ep-ms" /></div>
+          <div class="set-row"><label>Ollama Registry</label><input type="text" id="s-ep-ol" /></div>
+          <div class="small muted">留空保存即恢复默认地址；必须以 <span class="mono">http://</span> 或 <span class="mono">https://</span> 开头。</div>
+        </div>
+        <div class="row2">
+          <button class="btn primary" id="btn-settings-save">保存设置</button>
+          <button class="btn" id="btn-settings-reset">恢复默认</button>
+          <span class="small muted" id="s-status"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+function toast(msg, kind = "") {
+  const d = document.createElement("div");
+  d.className = kind;
+  d.textContent = msg;
+  $("#toast").appendChild(d);
+  setTimeout(() => d.remove(), kind === "bad" ? 5200 : (kind === "warn" ? 4200 : 2800));
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  if (!r.ok) {
+    let detail = r.statusText;
+    try { const j = await r.json(); detail = j.detail || JSON.stringify(j); } catch (e) {}
+    throw new Error(detail);
+  }
+  return r.status === 204 ? null : r.json();
+}
+async function sse(path, body, onEvent, signal) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!r.ok) {
+    let detail = r.statusText;
+    try { const j = await r.json(); detail = j.detail || JSON.stringify(j); } catch (e) {}
+    throw new Error(detail);
+  }
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop();
+    for (const p of parts) {
+      const line = p.split("\n").find(l => l.startsWith("data:"));
+      if (!line) continue;
+      try { onEvent(JSON.parse(line.slice(5).trim())); } catch (e) {}
+    }
+  }
+}
+
+/* 全局状态 */
+const SRC_LABELS = {
+  "hf-mirror": "HuggingFace 国内镜像",
+  "modelscope": "魔搭 ModelScope",
+  "ollama": "Ollama Registry（直取 GGUF）",
+};
+const EP_KEYS = {
+  "hf-mirror": "hf_endpoint",
+  "modelscope": "modelscope_endpoint",
+  "ollama": "ollama_registry",
+};
+const OFF_MODES = [
+  ["auto", "自动（按显存取最大可卸载层数）"],
+  ["cpu", "纯 CPU（0 层）"],
+  ["all", "全部进 GPU"],
+  ["custom", "自定义层数"],
+];
+let SETTINGS = null;
+let SRC_ORDER = [];
+let OFFLOAD = { mode: "auto", layers: 0 };
+
+/* 导航 */
+$$(".tabs button").forEach(b => b.onclick = () => {
+  $$(".tabs button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  $$("section.view").forEach(v => v.classList.remove("active"));
+  $("#view-" + b.dataset.view).classList.add("active");
+  if (b.dataset.view === "models") loadModels();
+  if (b.dataset.view === "advisor") loadAdvisor();
+  if (b.dataset.view === "settings") loadSettings();
+});
+
+/* 生效配置：保存设置后需要刷新页面上的目录 / 源下拉 */
+async function refreshConfig() {
+  try {
+    const c = await api("/api/config");
+    $("#m-dir").textContent = c.models_dir;
+    $("#d-order").textContent = c.sources_order.join(" > ");
+    $("#s-file").textContent = c.settings_file;
+    $("#s-models-eff").textContent = c.models_dir;
+    $("#s-image-eff").textContent = c.image_models_dir;
+    const s = await api("/api/sources");
+    const sel = $("#d-source");
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">自动选源</option>`;
+    s.sources.forEach(x => {
+      const o = document.createElement("option");
+      o.value = x.name; o.textContent = x.name + (x.ok ? " ✓" : " ✗");
+      sel.appendChild(o);
+    });
+    sel.value = [...sel.options].some(o => o.value === cur) ? cur : "";
+  } catch (e) { /* 非致命 */ }
+}
+
+async function init() {
+  try {
+    const s = await api("/api/settings");
+    SETTINGS = s.settings;
+    SRC_ORDER = [...s.settings.sources.order];
+    OFFLOAD = { ...(s.settings.offload || { mode: "auto", layers: 0 }) };
+    $("#adv-off-mode").innerHTML = OFF_MODES.map(([k, label]) =>
+      `<option value="${k}">${esc(label)}</option>`).join("");
+    syncOffloadControls();
+    renderSettings();
+  } catch (e) { toast("读取设置失败：" + e.message, "bad"); }
+  await refreshConfig();
+  loadAdvisor();
+}
+
+/* ---------------- 模型推荐 ---------------- */
+let ADV_ROLE = "";
+
+function syncOffloadControls() {
+  $("#adv-off-mode").value = OFFLOAD.mode;
+  $("#adv-off-custom").style.display = OFFLOAD.mode === "custom" ? "" : "none";
+  $("#adv-off-range").value = OFFLOAD.layers;
+  $("#adv-off-layers").textContent = OFFLOAD.layers + " 层";
+  $("#adv-off-hint").textContent = OFFLOAD.mode === "auto"
+    ? "按当前显存自动求 -ngl"
+    : (OFFLOAD.mode === "custom" ? "拖动后松开即保存" : "");
+}
+async function persistOffload() {
+  try {
+    const r = await api("/api/settings", { method: "POST", body: JSON.stringify({ offload: OFFLOAD }) });
+    SETTINGS = r.settings;
+  } catch (e) { toast("分层策略保存失败：" + e.message, "bad"); }
+}
+$("#adv-off-mode").onchange = async e => {
+  OFFLOAD.mode = e.target.value;
+  syncOffloadControls();
+  await persistOffload();
+  loadAdvisor();
+};
+$("#adv-off-range").oninput = e => {
+  OFFLOAD.layers = +e.target.value;
+  $("#adv-off-layers").textContent = OFFLOAD.layers + " 层";
+};
+$("#adv-off-range").onchange = async () => { await persistOffload(); loadAdvisor(); };
+
+async function loadAdvisor() {
+  const hwEl = $("#adv-hw");
+  hwEl.innerHTML = `<span class="spin"></span> 检测硬件…`;
+  try {
+    const q = [ADV_ROLE ? "role=" + encodeURIComponent(ADV_ROLE) : "",
+      `offload_mode=${encodeURIComponent(OFFLOAD.mode)}&offload_layers=${OFFLOAD.layers}`
+    ].filter(Boolean).join("&");
+    const r = await api("/api/advisor?" + q);
+    $("#adv-off-note").textContent = (r.offload && r.offload.note) || "";
+    hwEl.innerHTML = `<b>${esc(r.hardware.summary)}</b>`;
+    const roles = $("#adv-roles");
+    roles.innerHTML = `<button class="btn sm ${!ADV_ROLE ? "primary" : ""}" data-r="">全部</button>` +
+      r.roles.map(x => `<button class="btn sm ${ADV_ROLE === x.key ? "primary" : ""}" data-r="${x.key}">${esc(x.label)}</button>`).join("");
+    $$("button", roles).forEach(b => b.onclick = () => { ADV_ROLE = b.dataset.r; loadAdvisor(); });
+    const box = $("#adv-list");
+    box.innerHTML = r.recommendations.map(x => {
+      const fitCls = x.fit === "good" ? "ok" : (x.fit === "tight" ? "warn" : "bad");
+      const dl = x.installed ? "" : `<button class="btn sm primary adv-dl" data-k="${esc(x.key)}">一键下载</button>`;
+      const L = x.layered || {};
+      const lvCls = L.verdict === "ok" ? "ok" : (L.verdict === "tight" ? "warn" : "bad");
+      const layerHtml = L.applicable ? `<div class="layer-info">
+          <span class="pill ${lvCls}" style="padding:1px 8px">分层 ${L.layers}/${L.total_layers} 层 · ${esc(L.verdict_label)}</span>
+          <span class="mono">显存 ${L.gpu_gb}GB / 内存 ${L.cpu_gb}GB（可用显存 ${L.vram_budget_gb}GB）</span>
+          <span class="muted">建议 -ngl ${L.max_layers} · ${esc(L.note)}</span>
+        </div>` : `<div class="layer-info muted">${esc(L.note || "")}</div>`;
+      return `<div class="card" style="${x.fit === "too_big" ? "opacity:.62" : ""}">
+        <div class="row2" style="justify-content:space-between">
+          <div class="row2">
+            <b>${esc(x.title)}</b>
+            <span class="tag">${esc(x.role_label)}</span>
+            <span class="tag">${esc(x.quant || "auto")}</span>
+            <span class="tag">${esc(x.size_h)}</span>
+            <span class="pill ${fitCls}" style="padding:1px 8px">${esc(x.fit_label)}</span>
+            ${x.installed ? '<span class="pill ok" style="padding:1px 8px">已下载</span>' : ""}
+            ${x.mmproj ? '<span class="tag">含 mmproj</span>' : ""}
+          </div>
+          <div class="row2">${dl}</div>
+        </div>
+        <div class="small muted" style="margin-top:6px">${esc(x.why)}<br/>
+          <span class="mono">${esc(x.fit_note)}</span>　·　仓库 <span class="mono">${esc(x.ref)}</span></div>
+        ${layerHtml}
+      </div>`;
+    }).join("");
+    $$(".adv-dl", box).forEach(b => b.onclick = () => {
+      const x = r.recommendations.find(t => t.key === b.dataset.k);
+      if (!x) return;
+      $("#adv-prog-card").style.display = "";
+      downloadFlow(x.spec, $("#adv-prog"), () => { loadAdvisor(); });
+    });
+  } catch (e) {
+    hwEl.innerHTML = `<span style="color:var(--err)">检测失败：${esc(e.message)}</span>`;
+  }
+}
+$("#btn-adv-refresh").onclick = loadAdvisor;
+
+/* ---------------- 模型库 ---------------- */
+async function loadModels() {
+  try {
+    const r = await api("/api/models");
+    const tb = $("#tbl-models tbody");
+    tb.innerHTML = "";
+    $("#m-empty").style.display = r.models.length ? "none" : "";
+    r.models.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono">${esc(m.id)}${m.exists ? "" : ' <span class="pill bad" style="padding:0 6px">丢失</span>'}</td>
+        <td>${esc(m.alias || "-")}</td>
+        <td class="mono">${esc(m.quant || "-")}</td>
+        <td>${m.vision ? '<span class="pill ok" style="padding:0 6px">是</span>' : "否"}</td>
+        <td class="mono">${esc(m.size_h)}</td>
+        <td class="small muted">${esc(m.source || "-")}</td>
+        <td class="mono small">${esc(m.path)}</td>
+        <td><div class="row2">
+          <button class="btn sm unlink" title="只从模型库移除记录，保留权重文件">移除记录</button>
+          <button class="btn sm del danger" title="删除记录并删除本地权重文件（不可恢复）">删除</button>
+        </div></td>`;
+      $(".unlink", tr).onclick = async () => {
+        if (!confirm(`从模型库移除「${m.id}」的记录？\n权重文件会保留在：\n${m.path}`)) return;
+        try { await api("/api/models/" + encodeURIComponent(m.id), { method: "DELETE" }); toast("已移除记录（文件保留）"); loadModels(); }
+        catch (e) { toast(e.message, "bad"); }
+      };
+      $(".del", tr).onclick = async () => {
+        const files = [m.path + "（" + m.size_h + "）"];
+        if (m.mmproj) files.push(m.mmproj);
+        if (!confirm("⚠ 将永久删除以下本地文件，不可恢复：\n\n  " + files.join("\n  ") +
+                     "\n\n如果只想清理列表、保留文件，请点「移除记录」。\n确定删除？")) return;
+        try {
+          const r = await api("/api/models/" + encodeURIComponent(m.id) + "?delete_file=1", { method: "DELETE" });
+          toast(`已删除，释放 ${r.freed_h || "0 B"}`, "ok");
+          loadModels();
+        } catch (e) { toast(e.message, "bad"); }
+      };
+      tb.appendChild(tr);
+    });
+  } catch (e) { toast("加载模型库失败：" + e.message, "bad"); }
+}
+$("#btn-scan").onclick = async () => {
+  try { const r = await api("/api/models/scan", { method: "POST", body: "{}" }); toast(`扫描完成，新增 ${r.added} 个`); loadModels(); }
+  catch (e) { toast(e.message, "bad"); }
+};
+$("#btn-scan-prune").onclick = async () => {
+  try { const r = await api("/api/models/scan", { method: "POST", body: JSON.stringify({ prune: true }) }); toast(`扫描完成，共 ${r.count} 个`); loadModels(); }
+  catch (e) { toast(e.message, "bad"); }
+};
+
+/* ---------------- 下载 ---------------- */
+$("#btn-search").onclick = async () => {
+  const q = $("#q").value.trim();
+  if (!q) return;
+  const box = $("#q-res");
+  box.innerHTML = `<div class="muted small"><span class="spin"></span> 搜索中…</div>`;
+  try {
+    const r = await api("/api/search", { method: "POST", body: JSON.stringify({ query: q }) });
+    if (!r.results.length) { box.innerHTML = `<div class="empty">没有找到 ${esc(q)} 相关的 GGUF 仓库</div>`; return; }
+    box.innerHTML = `<table class="t"><thead><tr><th>仓库</th><th>下载量</th><th>点赞</th><th>标签</th><th></th></tr></thead><tbody></tbody></table>`;
+    const tb = $("tbody", box);
+    r.results.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="mono">${esc(m.id)}</td><td>${(m.downloads || 0).toLocaleString()}</td><td>${m.likes ?? 0}</td>
+        <td class="small muted">${esc((m.tags || []).join(", "))}</td><td><button class="btn sm">选用</button></td>`;
+      $("button", tr).onclick = () => { $("#d-ref").value = m.id; $("#d-quant").value = $("#d-quant").value || "q4_k_m"; listFiles(); };
+      tb.appendChild(tr);
+    });
+  } catch (e) { box.innerHTML = `<div class="empty">搜索失败：${esc(e.message)}</div>`; }
+};
+
+async function listFiles() {
+  const ref = $("#d-ref").value.trim();
+  if (!ref) { toast("先填仓库", "bad"); return; }
+  const src = $("#d-source").value;
+  const box = $("#d-files");
+  box.innerHTML = `<div class="muted small"><span class="spin"></span> 解析中…</div>`;
+  try {
+    const r = await api(`/api/files?ref=${encodeURIComponent(ref)}${src ? "&source=" + src : ""}`);
+    const fs = r.files.filter(f => f.filename.toLowerCase().endsWith(".gguf") || f.role === "mmproj" || f.role === "config");
+    box.innerHTML = `<div class="small muted" style="margin-bottom:6px">源：<b>${esc(r.source)}</b>　共 ${r.files.length} 个文件</div>
+      <table class="t"><thead><tr><th>文件</th><th>角色</th><th>大小</th><th></th></tr></thead><tbody></tbody></table>`;
+    const tb = $("tbody", box);
+    fs.forEach(f => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="mono">${esc(f.filename)}</td><td>${esc(f.role)}</td><td class="mono">${esc(f.size_h || "-")}</td><td><button class="btn sm">选用</button></td>`;
+      $("button", tr).onclick = () => { $("#d-ref").value = ref; $("#d-quant").value = ""; toast("已选用 " + f.filename + "，直接点开始下载"); };
+      tb.appendChild(tr);
+    });
+  } catch (e) { box.innerHTML = `<div class="empty">解析失败：${esc(e.message)}</div>`; }
+}
+$("#btn-files").onclick = listFiles;
+
+/* 共享下载流程：下载页与推荐页共用（含停止 / 取消） */
+async function downloadFlow(body, prog, onDone) {
+  const bars = {};
+  let taskId = null;
+  prog.innerHTML = `<div class="muted small"><span class="spin"></span> 解析文件清单…</div>`;
+  const ctrl = document.createElement("div");
+  ctrl.className = "row2";
+  ctrl.style.marginTop = "10px";
+  ctrl.innerHTML = `<button class="btn sm stop-dl" disabled>停止（保留续传）</button>
+    <button class="btn sm danger cancel-dl" disabled>取消（删除临时文件）</button>
+    <span class="small muted task-label"></span>`;
+  prog.appendChild(ctrl);
+  const enableCtrl = yes => {
+    const ok = !!yes && !!taskId;
+    $(".stop-dl", ctrl).disabled = !ok;
+    $(".cancel-dl", ctrl).disabled = !ok;
+  };
+  const requestStop = async purge => {
+    if (!taskId) return;
+    enableCtrl(false);
+    try {
+      await api("/api/download/cancel", {
+        method: "POST", body: JSON.stringify({ id: taskId, purge: !!purge }),
+      });
+      toast(purge ? "已请求取消（删除 .part）" : "已请求停止（保留 .part）", "warn");
+    } catch (e) { toast("操作失败：" + e.message, "bad"); }
+  };
+  $(".stop-dl", ctrl).onclick = () => requestStop(false);
+  $(".cancel-dl", ctrl).onclick = () => requestStop(true);
+  const addNote = txt => {
+    const d = document.createElement("div");
+    d.className = "small muted";
+    d.textContent = "· " + txt;
+    prog.appendChild(d);
+  };
+  try {
+    await sse("/api/download", body, ev => {
+      if (ev.type === "task") {
+        taskId = ev.id;
+        $(".task-label", ctrl).textContent = "任务 " + ev.id + (ev.label ? " · " + ev.label : "");
+        enableCtrl(true);
+        return;
+      }
+      if (ev.type === "progress") {
+        const key = ev.filename || "…";
+        if (!bars[key]) {
+          const d = document.createElement("div");
+          d.style.margin = "10px 0";
+          d.innerHTML = `<div class="small"><b class="mono">${esc(key)}</b> <span class="st muted"></span></div>
+            <div class="bar"><i></i></div>`;
+          prog.appendChild(d);
+          bars[key] = d;
+        }
+        if (ev.total) {
+          $("i", bars[key]).style.width = ev.percent + "%";
+          $(".st", bars[key]).textContent = `${ev.percent.toFixed(1)}% · ${(ev.speed_bps / 1048576).toFixed(2)} MB/s${ev.eta_s ? " · 剩 " + Math.round(ev.eta_s) + "s" : ""} · ${ev.source}`;
+        } else {
+          $(".st", bars[key]).textContent = ev.message || ev.phase;
+        }
+      } else if (ev.type === "trying") {
+        addNote(`尝试仓库 ${ev.ref} …`);
+      } else if (ev.type === "note") {
+        addNote(ev.message);
+      } else if (ev.type === "plan") {
+        const d = document.createElement("div");
+        d.className = "small";
+        d.innerHTML = `源 <b>${esc(ev.resolved_by)}</b>　共 <b>${esc(ev.total_size_h)}</b><br/>` +
+          ev.items.map(i => `<span class="mono muted">· ${esc(i.filename)} (${esc(i.role)})</span>`).join("<br/>");
+        prog.appendChild(d);
+      } else if (ev.type === "done") {
+        enableCtrl(false);
+        const d = document.createElement("div");
+        d.className = "pill ok";
+        d.style.marginTop = "12px";
+        d.textContent = ev.registered
+          ? `完成：${ev.model.path}`
+          : `完成：${ev.files || (ev.paths || []).length} 个文件 → ${ev.dest}${ev.total_size_h ? "（共 " + ev.total_size_h + "）" : ""}`;
+        prog.appendChild(d);
+        toast("下载完成" + (ev.registered ? "并已登记" : ""), "ok");
+        onDone && onDone(ev);
+      } else if (ev.type === "error") {
+        enableCtrl(false);
+        const d = document.createElement("div");
+        d.className = "pill bad";
+        d.style.marginTop = "12px";
+        d.textContent = "失败：" + ev.message;
+        prog.appendChild(d);
+        toast("下载失败：" + ev.message, "bad");
+      } else if (ev.type === "cancelled") {
+        enableCtrl(false);
+        const d = document.createElement("div");
+        d.className = "pill warn";
+        d.style.marginTop = "12px";
+        d.textContent = (ev.purge ? "已取消：" : "已停止：") + ev.message;
+        prog.appendChild(d);
+        toast(ev.purge ? "下载已取消" : "下载已停止", "warn");
+      } else if (ev.type === "end") {
+        enableCtrl(false);
+      }
+    });
+  } finally { enableCtrl(false); }
+}
+
+$("#btn-download").onclick = async () => {
+  const ref = $("#d-ref").value.trim();
+  if (!ref) { toast("先填仓库", "bad"); return; }
+  const btn = $("#btn-download");
+  btn.disabled = true;
+  $("#d-prog-card").style.display = "";
+  try {
+    await downloadFlow({
+      ref, quant: $("#d-quant").value.trim() || null, source: $("#d-source").value || null,
+      alias: $("#d-alias").value.trim() || "", mmproj: $("#d-mmproj").checked,
+    }, $("#d-prog"), () => { loadModels(); });
+  } catch (e) { toast("下载失败：" + e.message, "bad"); }
+  finally { btn.disabled = false; }
+};
+
+/* ---------------- 设置 ---------------- */
+async function loadSettings() {
+  try {
+    const r = await api("/api/settings");
+    SETTINGS = r.settings;
+    SRC_ORDER = [...r.settings.sources.order];
+    OFFLOAD = { ...(r.settings.offload || OFFLOAD) };
+    syncOffloadControls();
+    renderSettings();
+    $("#s-file").textContent = r.effective.settings_file;
+    $("#s-models-eff").textContent = r.effective.models_dir;
+    $("#s-image-eff").textContent = r.effective.image_models_dir;
+  } catch (e) { toast("读取设置失败：" + e.message, "bad"); }
+}
+
+function renderSettings() {
+  if (!SETTINGS) return;
+  $("#s-models").value = SETTINGS.models_dir || "";
+  $("#s-image").value = SETTINGS.image_models_dir || "";
+  $("#s-ep-hf").value = SETTINGS.sources.hf_endpoint || "";
+  $("#s-ep-ms").value = SETTINGS.sources.modelscope_endpoint || "";
+  $("#s-ep-ol").value = SETTINGS.sources.ollama_registry || "";
+  renderSources();
+}
+
+function renderSources() {
+  const all = Object.keys(SRC_LABELS);
+  const enabled = SRC_ORDER.filter(n => all.includes(n));
+  const rows = [...enabled, ...all.filter(n => !enabled.includes(n))];
+  const box = $("#s-sources");
+  box.innerHTML = rows.map((n, i) => {
+    const on = enabled.includes(n);
+    return `<div class="src-item" data-n="${n}">
+      <label class="row2" style="margin:0;min-width:230px">
+        <input type="checkbox" class="src-on" ${on ? "checked" : ""} />
+        <b>${esc(n)}</b><span class="small muted">${esc(SRC_LABELS[n])}</span>
+      </label>
+      <span class="mono small muted">${esc(SETTINGS.sources[EP_KEYS[n]] || "")}</span>
+      <span class="row2" style="gap:4px">
+        <button class="btn sm src-up" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button class="btn sm src-down" ${i === rows.length - 1 ? "disabled" : ""}>↓</button>
+      </span>
+      <span class="tag">${on ? "启用 · 第 " + (enabled.indexOf(n) + 1) + " 顺位" : "停用"}</span>
+    </div>`;
+  }).join("");
+  $$(".src-item", box).forEach(row => {
+    const n = row.dataset.n;
+    $(".src-on", row).onchange = e => {
+      if (e.target.checked) {
+        if (!SRC_ORDER.includes(n)) SRC_ORDER.push(n);
+      } else {
+        SRC_ORDER = SRC_ORDER.filter(x => x !== n);
+        if (!SRC_ORDER.length) { SRC_ORDER.push(n); toast("至少保留一个下载源", "warn"); }
+      }
+      renderSources();
+    };
+    const move = d => {
+      const cur = SRC_ORDER.includes(n) ? SRC_ORDER : [...SRC_ORDER, n];
+      const i = cur.indexOf(n), j = i + d;
+      if (i < 0 || j < 0 || j >= cur.length) return;
+      [cur[i], cur[j]] = [cur[j], cur[i]];
+      SRC_ORDER = [...cur];
+      renderSources();
+    };
+    $(".src-up", row).onclick = () => move(-1);
+    $(".src-down", row).onclick = () => move(1);
+  });
+}
+
+$("#btn-settings-save").onclick = async () => {
+  if (!SRC_ORDER.length) { toast("至少启用一个下载源", "bad"); return; }
+  const payload = {
+    models_dir: $("#s-models").value.trim(),
+    image_models_dir: $("#s-image").value.trim(),
+    sources: {
+      order: SRC_ORDER,
+      hf_endpoint: $("#s-ep-hf").value.trim(),
+      modelscope_endpoint: $("#s-ep-ms").value.trim(),
+      ollama_registry: $("#s-ep-ol").value.trim(),
+    },
+    offload: OFFLOAD,
+  };
+  const btn = $("#btn-settings-save");
+  btn.disabled = true;
+  $("#s-status").textContent = "保存中…";
+  try {
+    const r = await api("/api/settings", { method: "POST", body: JSON.stringify(payload) });
+    SETTINGS = r.settings;
+    SRC_ORDER = [...r.settings.sources.order];
+    OFFLOAD = { ...(r.settings.offload || OFFLOAD) };
+    syncOffloadControls();
+    renderSettings();
+    $("#s-models-eff").textContent = r.effective.models_dir;
+    $("#s-image-eff").textContent = r.effective.image_models_dir;
+    await refreshConfig();
+    $("#s-status").textContent = "已保存，立即生效";
+    toast("设置已保存并生效", "ok");
+  } catch (e) {
+    $("#s-status").textContent = "";
+    toast("保存失败：" + e.message, "bad");
+  } finally { btn.disabled = false; }
+};
+
+$("#btn-settings-reset").onclick = async () => {
+  if (!confirm("恢复所有设置为默认值？\n自定义目录里的文件不会被删除，只是不再作为下载目标。")) return;
+  try {
+    const r = await api("/api/settings/reset", { method: "POST", body: "{}" });
+    SETTINGS = r.settings;
+    SRC_ORDER = [...r.settings.sources.order];
+    OFFLOAD = { ...(r.settings.offload || { mode: "auto", layers: 0 }) };
+    syncOffloadControls();
+    renderSettings();
+    await refreshConfig();
+    $("#s-status").textContent = "已恢复默认";
+    toast("已恢复默认设置", "ok");
+    loadAdvisor();
+  } catch (e) { toast("恢复失败：" + e.message, "bad"); }
+};
+
+init();
+</script>
+</body>
+</html>

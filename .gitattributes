@@ -1,0 +1,9 @@
+# 默认所有文本文件在仓库里统一 LF
+* text=auto eol=lf
+
+# Windows 批处理：cmd 要求 CRLF。按二进制原样保存（不做换行规范化），
+# 确保 git clone / GitHub ZIP / raw 下载拿到的都是可直接双击的 CRLF 版本。
+*.bat -text
+
+# POSIX shell 必须保持 LF
+*.sh text eol=lf
