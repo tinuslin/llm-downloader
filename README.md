@@ -1,5 +1,10 @@
 # LLM Downloader
 
+[![CI](https://github.com/tinuslin/llm-downloader/actions/workflows/ci.yml/badge.svg)](https://github.com/tinuslin/llm-downloader/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/tinuslin/llm-downloader)](https://github.com/tinuslin/llm-downloader/releases)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
+
 多源模型下载器 + 硬件自适应推荐 + 本地模型库。把「**推荐 / 模型管理 / 下载**」三块能力从
 内部 agent-harness 项目抽离成一个独立、可分享的开源小工具，不依赖 harness 的
 provider / 运行时 / 文生图 / 视频等模块。
@@ -26,11 +31,15 @@ provider / 运行时 / 文生图 / 视频等模块。
 HTTP 客户端用标准库 `urllib` 实现（自动继承系统代理、跟随 302/CDN 跳转、支持 Range 续传和 gzip），
 所以 `clone` 下来就能执行 `recommend` / `download` / `scan` / `list`。
 
-**Web UI** 才需要两个包：
+**Web UI** 才需要两个包（`fastapi` + `uvicorn`）：
 
 ```bash
-pip install -r requirements.txt       # 或 pip install -e .
+pip install -r requirements.txt       # 源码目录直接跑
+pip install -e ".[web]"               # 或装成可编辑包，Web 依赖一并安装
 ```
+
+`[web]` 是可选依赖：`pip install .` 只装零依赖 CLI。
+Web 页面 `static/index.html` 已声明为包数据，wheel / sdist 均会随包分发。
 
 不想敲命令的话，用仓库里的启动脚本：
 

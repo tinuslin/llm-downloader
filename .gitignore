@@ -25,6 +25,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# 打包临时产物（sdist 解压目录）
+llm_downloader-*/
+
 # 测试产物
 .pytest_cache/
 htmlcov/
